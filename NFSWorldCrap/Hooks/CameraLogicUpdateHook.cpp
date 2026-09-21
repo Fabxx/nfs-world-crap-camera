@@ -26,6 +26,8 @@ namespace NFS {
         static void* g_pCurrentCameraState = nullptr;
         static float g_lastDeltaTime = 0.016f;
 
+        static bool g_hookEnabled = false;
+
         struct vec3 { float x, y, z; };
 
         namespace Offsets {
@@ -52,7 +54,7 @@ namespace NFS {
         }
 
         void __cdecl DetouredBuildViewMatrix(void* out_matrix_void, float* camera_pos_arr, float* target_pos_arr, void* up_vector_void) {
-            if (!g_pCurrentCameraState) {
+            if (!g_hookEnabled || !g_pCurrentCameraState) {
                 g_originalBuildViewMatrix(out_matrix_void, camera_pos_arr, target_pos_arr, up_vector_void);
                 return;
             }
@@ -215,7 +217,19 @@ namespace NFS {
             m[15] = 1.0f;
         }
 
+        // Polls F9 for a press edge (not "is held") and flips g_hookEnabled.
+        inline void PollHookToggleKey() {
+            static bool wasDown = false;
+            bool isDown = (GetAsyncKeyState(VK_F9) & 0x8000) != 0;
+            if (isDown && !wasDown) {
+                g_hookEnabled = !g_hookEnabled;
+                L.Get()->info("Camera hook {} (F9)", g_hookEnabled ? "ENABLED" : "DISABLED - vanilla camera restored");
+            }
+            wasDown = isDown;
+        }
+
         void __fastcall DetouredCameraLogicUpdate(void* cameraState, void* edx, float deltaTime) {
+            PollHookToggleKey();
             g_pCurrentCameraState = cameraState;
             g_lastDeltaTime = (deltaTime > 0.0f && deltaTime < 0.1f) ? deltaTime : 0.016f;
             g_original_CameraLogic_Update(cameraState, deltaTime);
